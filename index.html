@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KÍGYÓÓ</title>
+<style>
+html, body {
+    margin: 0;
+    height: 100%;
+    background: linear-gradient(135deg, #8e2de2, #4a00e0);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: sans-serif;
+    color: white;
+}
+canvas {
+    background: black;
+    display: none;
+    border: 2px solid white;
+}
+h1 { margin-bottom: 10px; }
+
+#scoreboard {
+    display: none;
+    text-align: center;
+    margin-bottom: 10px;
+    font-size: 18px;
+}
+
+/* Bal oldali szöveg */
+#sideText {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    font-size: 22px;
+    font-weight: bold;
+    color: #fff;
+    display: none;
+    background: rgba(255, 255, 255, 0.15);
+    padding: 10px 18px;
+    border-radius: 10px;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 0 10px rgba(0,0,0,0.4);
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.7);
+    font-family: "Trebuchet MS", sans-serif;
+    letter-spacing: 1px;
+}
+#sideText p {
+    margin: 6px 0;
+}
+
+/* Záptojás effekt */
+@keyframes shake {
+    0%, 100% { transform: translate(0, 0); }
+    20% { transform: translate(-3px, 2px); }
+    40% { transform: translate(3px, -2px); }
+    60% { transform: translate(-2px, 3px); }
+    80% { transform: translate(2px, -3px); }
+}
+@keyframes flash {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+}
+.zaptojas {
+    animation: shake 0.4s ease-in-out infinite, flash 0.7s linear infinite;
+}
+
+#controls {
+    display: none;
+    grid-template-columns: 60px 60px 60px;
+    grid-template-rows: 60px 60px 60px;
+    gap: 10px;
+    margin-top: 10px;
+    justify-items: center;
+    align-items: center;
+}
+#controls button {
+    font-size: 24px;
+    width: 60px;
+    height: 60px;
+    border-radius: 10px;
+    border: none;
+    background: white;
+    color: black;
+    font-weight: bold;
+}
+
+button#restartBtn {
+    display: none;
+    margin-top: 10px;
+    padding: 10px 20px;
+    font-size: 16px;
+}
+
+/* Menü stílus */
+#menu {
+    text-align: center;
+}
+#menu h1 {
+    font-size: 40px;
+    margin-bottom: 20px;
+}
+#menu button {
+    padding: 10px 30px;
+    font-size: 18px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    background: white;
+    color: #4a00e0;
+    font-weight: bold;
+}
+#menu button:hover {
+    background: #ddd;
+}
+
+/* HIHIHIHIII felirat */
+#hihihi {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 70px;
+    color: red;
+    font-weight: bold;
+    text-shadow: 3px 3px 15px black;
+    display: none;
+    animation: hihiFlash 0.2s ease-in-out infinite alternate;
+    z-index: 999;
+}
+@keyframes hihiFlash {
+    from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    to { opacity: 0.4; transform: translate(-50%, -50%) scale(1.1); }
+}
+</style>
+</head>
+<body>
+<div id="menu">
+    <h1>KÍGYÓÓ 🐍</h1>
+    <button id="startGame">Játék indítása</button>
+</div>
+
+<!-- Bal oldali szöveg -->
+<div id="sideText">
+    <p>Sok sikert komáim!</p>
+    <p id="zaptojasText" style="font-size:18px; font-weight:normal;">Aki meghal az egy záptojás 🥚💀</p>
+</div>
+
+<div id="scoreboard">
+    <p>Pontszám: <span id="score">0</span></p>
+    <p>Legmagasabb pontszám: <span id="highscore">0</span></p>
+</div>
+
+<canvas id="gameCanvas" width="500" height="400"></canvas>
+
+<div id="controls">
+    <div></div><button id="up">W</button><div></div>
+    <button id="left">A</button><button id="down">S</button><button id="right">D</button>
+</div>
+
+<button id="restartBtn">Új játék</button>
+
+<!-- HIHI felirat -->
+<div id="hihihi">HIHIHIHIII 😈</div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const scoreElement = document.getElementById("score");
+const highscoreElement = document.getElementById("highscore");
+const restartBtn = document.getElementById("restartBtn");
+const startGameBtn = document.getElementById("startGame");
+const menu = document.getElementById("menu");
+const scoreboard = document.getElementById("scoreboard");
+const controls = document.getElementById("controls");
+const sideText = document.getElementById("sideText");
+const zaptojasText = document.getElementById("zaptojasText");
+const hihihi = document.getElementById("hihihi");
+const box = 20;
+
+let snake = [{x:8*box, y:8*box}];
+let direction = "RIGHT";
+let nextDirection = "RIGHT";
+let score = 0;
+let food = {};
+let isPaused = false;
+let game;
+
+// Highscore betöltése
+let highscore = localStorage.getItem("snake_highscore") || 0;
+highscoreElement.innerText = highscore;
+
+function generateFood() {
+    let newFood;
+    do {
+        newFood = { 
+            x: Math.floor(Math.random() * (canvas.width / box)) * box, 
+            y: Math.floor(Math.random() * (canvas.height / box)) * box 
+        };
+    } while (snake.some(seg => seg.x === newFood.x && seg.y === newFood.y));
+    return newFood;
+}
+
+function resetGame() {
+    snake = [{x:8*box, y:8*box}];
+    direction = nextDirection = "RIGHT";
+    score = 0;
+    scoreElement.innerText = score;
+    food = generateFood();
+    isPaused = false;
+    zaptojasText.classList.remove("zaptojas");
+    hihihi.style.display = "none"; // elrejti a HIHIHIHIII-t
+    clearInterval(game);
+    game = setInterval(draw, 100);
+}
+
+function collision(head) {
+    return snake.some((seg,i)=>i>0 && seg.x === head.x && seg.y === head.y);
+}
+
+document.addEventListener("keydown", e => {
+    const key = e.key.toLowerCase();
+    if(key==="arrowleft"||key==="a") if(direction!=="RIGHT") nextDirection="LEFT";
+    if(key==="arrowup"||key==="w") if(direction!=="DOWN") nextDirection="UP";
+    if(key==="arrowright"||key==="d") if(direction!=="LEFT") nextDirection="RIGHT";
+    if(key==="arrowdown"||key==="s") if(direction!=="UP") nextDirection="DOWN";
+});
+
+document.getElementById("up").addEventListener("click", () => { if(direction!=="DOWN") nextDirection="UP"; });
+document.getElementById("down").addEventListener("click", () => { if(direction!=="UP") nextDirection="DOWN"; });
+document.getElementById("left").addEventListener("click", () => { if(direction!=="RIGHT") nextDirection="LEFT"; });
+document.getElementById("right").addEventListener("click", () => { if(direction!=="LEFT") nextDirection="RIGHT"; });
+
+restartBtn.addEventListener("click", resetGame);
+
+function draw() {
+    if(isPaused) return;
+    direction = nextDirection;
+    ctx.fillStyle = "black";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    let snakeX = snake[0].x;
+    let snakeY = snake[0].y;
+    if(direction==="LEFT") snakeX-=box;
+    if(direction==="UP") snakeY-=box;
+    if(direction==="RIGHT") snakeX+=box;
+    if(direction==="DOWN") snakeY+=box;
+    const newHead = {x:snakeX, y:snakeY};
+
+    if(snakeX<0||snakeX>=canvas.width||snakeY<0||snakeY>=canvas.height||collision(newHead)){
+        isPaused = true;
+        zaptojasText.classList.add("zaptojas");
+        hihihi.style.display = "block"; // HIHIHIHIII megjelenik
+        setTimeout(() => hihihi.style.display = "none", 2500); // 2.5 mp után eltűnik
+        if(score > highscore){
+            highscore = score;
+            localStorage.setItem("snake_highscore", highscore);
+            highscoreElement.innerText = highscore;
+        }
+        return;
+    }
+
+    let ate = false;
+    if(snakeX===food.x && snakeY===food.y){
+        score++;
+        scoreElement.innerText = score;
+        food = generateFood();
+        ate = true;
+    }
+
+    snake.unshift(newHead);
+    if(!ate) snake.pop();
+
+    snake.forEach((seg,i)=>{
+        ctx.fillStyle = i===0 ? "lime" : "white";
+        ctx.fillRect(seg.x,seg.y,box,box);
+        ctx.strokeStyle="#000";
+        ctx.strokeRect(seg.x,seg.y,box,box);
+    });
+
+    ctx.fillStyle = "red";
+    ctx.fillRect(food.x, food.y, box, box);
+}
+
+startGameBtn.addEventListener("click", () => {
+    menu.style.display = "none";
+    canvas.style.display = "block";
+    scoreboard.style.display = "block";
+    controls.style.display = "grid";
+    restartBtn.style.display = "block";
+    sideText.style.display = "block";
+    resetGame();
+});
+</script>
+</body>
+</html>
